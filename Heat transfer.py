@@ -1,34 +1,46 @@
 import numpy as np
-
+from scipy import stats 
+import matplotlib.pyplot as plt
 #-------------------------------------------------------------------------------------------#
 
-Uguess = 600
+Uguess = 1000
 solvingUguess = True
 counter = 0
 
-#heat exchanger for nuclear reactor (1-2)
-#typical temperature around 300 +- 20% celcius (safety factor) -> 360 celcius
-#want to cool to around 100 celcius
-#use cold liq as brine outside (shell)
-#use hot liq as water inside (tube)
-#tungsten as tube material
-#assume 80% efficiency of heat transfer
+#make flow turbulent! assume Re > 2100
+#assume no phase change
 
-#pipe parameters BWG no.10, 1.5 inch pipe
+#heat exchanger for nuclear reactor (2-4)
+#typical temperature around 300 +- 20% celcius (safety factor) -> 360 celcius
+#want to cool to around 120 celcius
+#use cold liq as brine (25% salt) outside (shell)
+#use hot liq as water inside (tube)
+#tungsten as material -> can withstand head + good price
+#25% baffle cut
+
+#pipe parameters BWG no.10, 1 inch pipe
 Do = 1 / 39.37 #1 inch to meter
 Di = 0.732 / 39.37 #0.732 inch to meter
 Xw = 0.134 / 39.37 #0.134 inch to meter
 L = 2.44 #2.44 meters of tube pipe -> 1.22 meter long tube 
 DbarL = (Do - Di) / np.log(Do / Di)
 
+#https://www.thermopedia.com/content/1121/
 typeofhead = [
     'Pull-Through',
-    'Split-Ring',
+    'Split-Ring', #the best choice
     'Outside-Packed',
-    'Fixed-UTube'
+    'Fixed-UTube' #U up, P up
 ]
 
+typeofexchanger = [
+    '1-2',
+    '2-4'
+]
+
+exchanger = typeofexchanger[1]
 head = typeofhead[0]
+pipematerial = 'Tungsten'
 
 while solvingUguess:
 
@@ -59,7 +71,7 @@ while solvingUguess:
     massmixture = mflowcold #brine stream kg / s
     Cp1 = 4180 #J / kg K water
     Cp2 = 880 #J / kg K salt
-    Cpmixture = ((mass1/massmixture)*Cp1) + ((mass2/massmixture)*Cp2)
+    Cpmixture = ((mass1/massmixture)*Cp1) + ((mass2/massmixture)*Cp2) #Cp of brine 25%
 
     #3 Flow Rate of Heating Stream
     Cpcold = Cpmixture #J/kg K
@@ -70,10 +82,17 @@ while solvingUguess:
     Cphot = 4180 #J / kg K
     mflowhot = qcold / (Cphot * (ThotIn - ThotOut)) #kg / s
 
-    #4 Fg for 1-2 Exchanger -> correction factor for LMTD
-    nh = (TcoldOut - TcoldIn) / (ThotIn - TcoldIn)
-    z = (ThotIn - ThotOut) / (TcoldOut - TcoldIn)
-    Fg = 0.92 #from graph
+    #4 Fg for 1-2 / 2-4 Exchanger -> correction factor for LMTD
+    if exchanger == '2-4':
+        #2-4 exchanger
+        nh = (TcoldOut - TcoldIn) / (ThotIn - TcoldIn)
+        z = (ThotIn - ThotOut) / (TcoldOut - TcoldIn)
+        Fg = 0.985 #from graph
+    else:
+        #1-2 exchanger
+        nh = (TcoldOut - TcoldIn) / (ThotIn - TcoldIn)
+        z = (ThotIn - ThotOut) / (TcoldOut - TcoldIn)
+        Fg = 0.935 #from graph    
 
     #5 Corrected LMTD
     newLMTD = LMTD * Fg #celsius
@@ -90,11 +109,19 @@ while solvingUguess:
     if Nt % 2 != 0: #to make it even everytime, when number is odd, add 1
         Nt += 1
 
-    #9 Tube Pitch -> triangular pitch 1-2 exchanger
-    Tubepitch = 1.25 * Do
-    Ki = 0.249
-    n1 = 2.207
-    Db = Do * (Nt / Ki)**(1 / n1)
+    #9 Tube Pitch -> triangular pitch 1-2 exchanger / 2-4 exchanger
+    if exchanger == '2-4':
+        #2-4 exchanger
+        Tubepitch = 1.25 * Do
+        Ki = 0.175
+        n1 = 2.285
+        Db = Do * (Nt / Ki)**(1 / n1)
+    else:
+        #1-2 exchanger
+        Tubepitch = 1.25 * Do
+        Ki = 0.249
+        n1 = 2.207
+        Db = Do * (Nt / Ki)**(1 / n1)
 
     #10 Clearance http://www.wermac.org/equipment/heatexchanger_part5.html -> depends on head
     if head == typeofhead[0]: #Pull through
@@ -149,21 +176,37 @@ while solvingUguess:
     Pr = (Cpcold * millshell) / Kk
 
     #18 hs from Nu -> individual heat transfer shell
-    jh = 2.5 * 10**-3 #find from graph
+
+        #18.1 creating a Jh factor linear equation, values are when Re > 2100, 25% baffle cut
+    Jhxvalues = [2.1*10**3, 3.3*10**3, 4*10**3, 5*10**3, 7*10**3, 9*10**3, 1.5*10**4, 2.2*10**4, 4.1*10**4, 7*10**4]
+    Jhyvalues = [1.3*10**-2, 1*10**-2, 0.9*10**-2, 0.8*10**-2, 0.7*10**-2, 0.6*10**-2, 0.5*10**-2, 0.4*10**-2, 0.3*10**-2, 0.2*10**-2]
+    Jhslope, Jhintercept, Jhrvalue, Jhpvalue, Jhstderr = stats.linregress(Jhxvalues, Jhyvalues)
+    Jh = (Jhslope * Re) + Jhintercept
+
     #temp at wall avg = (ThotIn + TcoldIn) / 2 -> 360 + 80 / 2 -> 220 celcius
     millshellwall = 0.12 * 10**-3 #N * s
 
-    hshell = (jh * Re * Pr**(1/3) * (millshell/millshellwall)**0.14) * Kk / De #w / m^2 k 
+    hshell = (Jh * Re * Pr**(1/3) * (millshell/millshellwall)**0.14) * Kk / De #w / m^2 k 
 
     #19 Pressure drop shell side
-    Jfshell = 3.8 * 10**-2 #find from graph
+
+        #19.1 creating a Jfshell factor linear equation, values are when Re > 2100, 25% baffle cut
+    Jfshellxvalues = [2.1*10**3, 9*10**3, 4*10**4, 3*10**5, 1*10**6]
+    Jfshellyvalues = [6*10**-2, 5*10**-2, 4*10**-2, 3*10**-2, 2.5*10**-2]
+    Jfshellslope, Jfshellintercept, Jfshellrvalue, Jfshellpvalue, Jfshellstderr = stats.linregress(Jfshellxvalues, Jfshellyvalues)
+    Jfshell = (Jfshellslope * Re) + Jfshellintercept
+
+    Jfshell = 4 * 10**-2 #find from graph
     roushell = 1150 #kg / m^3, density of brine
     Us = (mflowcold / Sc) / roushell
     ShellDeltaP = 8 * Jfshell * (Ds/De) * (L/P) * (roushell*(Us**2)/2) * (millshell/millshellwall)**-0.14 #kg/m s^2
 
     #Tube Side#
     #20 Nt per pass
-    Ntpp = Nt / 2
+    if exchanger == '2-4':
+        Ntpp = Nt / 4
+    else:
+        Ntpp = Nt / 2
 
     #21 Tube side volumetric velocity (Gi)
     Gi = mflowhot / ((Ntpp * np.pi * Di**2) / 4) #mflowhot already in seconds
@@ -202,12 +245,19 @@ while solvingUguess:
     #lowest = 100 micro meters
     #highest = 80 micro meters
     #avg = 100 + 80 / 2 = 90 micro meters of roughness
-    #inside pipe diameter = 0.0135128
-    #k / D = avg / inside pipe diameter = 90 micro meters / 0.0135128 = 6.66 * 10^-3
-    Jftube = 0.008
+    #inside pipe diameter = (0.732 / 39.37) meters
+    #k / D = avg / inside pipe diameter = 90 micro meters / (0.732 / 39.37) = 4.84 * 10^-3
+
+        #25.1 creating a Jftube factor linear equation, values are when Re > 2100, 25% baffle cut    
+    if 3*10**3 < ReTube < 4*10**5:
+        Jftubexvalues = np.array([4*10**3, 6*10**3, 8*10**3, 1*10**4, 2*10**4, 3*10**4, 4*10**4, 6*10**4, 8*10**4, 1*10**5, 4*10**5])
+        Jftubeyvalues = np.array([0.01125, 0.0105, 0.0098, 0.0096, 0.0087, 0.0085, 0.0082, 0.0079, 0.0078, 0.00765, 0.0075])
+        Jfpolycoefficients = np.polyfit(Jftubexvalues, Jftubeyvalues, 2)
+        Jftube = (Jfpolycoefficients[0] * ReTube**2) + (Jfpolycoefficients[1] * ReTube) + (Jfpolycoefficients[2]) + 0.002 #y = ax^2 + bx + c, + 0.002 since our graph starts at 0.002
+    elif ReTube > 4*10**5:
+        Jftube = 0.0075       
+
     TubeDeltaP = 1.5 + (Nt * (2.5 + (8 * Jftube * L / Di) + ((milltube/milltubewall)**-0.14))) * (routube * Ui**2 / 2)
-    #print(f'Brine (Outside) Pressure {ShellDeltaP} Pascal, Pressure {ShellDeltaP / 6895} PSI')    
-    #print(f'Water (Inside) Pressure {TubeDeltaP} Pascal, Pressure {TubeDeltaP / 6895} PSI')
  
     #keep count of iterations
     counter += 1
@@ -218,7 +268,10 @@ while solvingUguess:
 
     if abs(Uo - Uguess) < 0.000000001:
         solvingUguess = False
-        print(f'({counter}) (Final U - {Uguess} {Uo}) (Outside P - {ShellDeltaP} Pa {ShellDeltaP / 6895} PSI) (Inside P - {TubeDeltaP} Pa {TubeDeltaP / 6895} PSI) (Head - {head})')
+        print(f'({counter}) (Final U - {Uguess} {Uo}) (Outside P - {ShellDeltaP} Pa {ShellDeltaP / 6895} PSI) (Inside P - {TubeDeltaP} Pa {TubeDeltaP / 6895} PSI) (Re Shell - {Re}) (Re Tube - {ReTube}) (Head - {head}) (Type - {exchanger}) (Material - {pipematerial})')
     else:
-        print(f'({counter}) (Iterating U - {Uguess} {Uo}) (Outside P - {ShellDeltaP} Pa {ShellDeltaP / 6895} PSI) (Inside P - {TubeDeltaP} Pa {TubeDeltaP / 6895} PSI)')
+        print(f'({counter}) (Iterating U - {Uguess} {Uo}) (Outside P - {ShellDeltaP} Pa {ShellDeltaP / 6895} PSI) (Inside P - {TubeDeltaP} Pa {TubeDeltaP / 6895} PSI) (Re Shell - {Re}) (Re of Tube - {ReTube})')
         Uguess = Uo
+
+#mention in report what is wrong with our calculation
+#don't want temperature to exceed boiling -> no phase change
