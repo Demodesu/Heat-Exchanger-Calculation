@@ -38,7 +38,7 @@ typeofexchanger = [
     '2-4'
 ]
 
-exchanger = typeofexchanger[1]
+exchanger = typeofexchanger[0]
 head = typeofhead[0]
 pipematerial = 'Tungsten'
 
@@ -197,7 +197,10 @@ while solvingUguess:
     Jfshell = (Jfshellslope * Re) + Jfshellintercept
 
     Jfshell = 4 * 10**-2 #find from graph
-    roushell = 1150 #kg / m^3, density of brine
+    #density of water = 997 kg / m^3, density of salt = 2160 kg / m^3
+    #if the solution consists of 75% and 25% salt
+    #(997 * 0.75) + (2160 * 0.25) = 1287.75 kg / m^3
+    roushell = 1287.75 #kg / m^3, density of brine
     Us = (mflowcold / Sc) / roushell
     ShellDeltaP = 8 * Jfshell * (Ds/De) * (L/P) * (roushell*(Us**2)/2) * (millshell/millshellwall)**-0.14 #kg/m s^2
 
