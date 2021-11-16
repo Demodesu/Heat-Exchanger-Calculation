@@ -26,6 +26,11 @@ L = 2.44 #2.44 meters of tube pipe -> 1.22 meter long tube
 DbarL = (Do - Di) / np.log(Do / Di)
 
 #https://www.thermopedia.com/content/1121/
+#http://www.wermac.org/equipment/heatexchanger_part5.html
+#https://www.google.com/search?q=The+thermal+conductivity+of+seawater&hl=en&sxsrf=AOaemvKWJvPyI9SCpZIG3u5SRB-GGI4_YQ:1635936424041&source=lnms&tbm=isch&sa=X&ved=2ahUKEwjv8LeLgvzzAhUp63MBHWi_B_QQ_AUoAXoECAEQAw&biw=958&bih=959&dpr=1#imgrc=c3Ac_9sBpaQQKM
+#https://www.engineeringtoolbox.com/water-liquid-gas-thermal-conductivity-temperature-pressure-d_2012.html
+#https://www.researchgate.net/figure/Surface-texture-of-direct-laser-deposited-tungsten-carbide-a-2D-surface-profile-b_fig1_249994402
+
 typeofhead = [
     'Pull-Through',
     'Split-Ring', #the best choice
@@ -60,7 +65,7 @@ while solvingUguess:
     hdcold = 1 / Rdcold
     hdhot = 1 / Rdhot
 
-    #2.1 Cp of salt solution -> cold stream
+        #2.1 Cp of salt solution -> cold stream
     #total weight of salt solution flow = 100000
     #25% salt solution -> 75000 water, 25000 salt
     #therefore, Cpmixture = (m1/mmixture)*Cp1 + (m2/mmixture)*Cp2
@@ -97,19 +102,16 @@ while solvingUguess:
     #5 Corrected LMTD
     newLMTD = LMTD * Fg #celsius
 
-    #6 Guess U **important**
-    #Uguess = ? #look at chart for common U
-
-    #7 Outside Area
+    #6 Outside Area
     Ao = qcold / (Uguess * newLMTD)
 
-    #8 Number of Tubes
+    #7 Number of Tubes
     Nt = Ao / (np.pi * Do * L)
     Nt = np.ceil(Nt)
     if Nt % 2 != 0: #to make it even everytime, when number is odd, add 1
         Nt += 1
 
-    #9 Tube Pitch -> triangular pitch 1-2 exchanger / 2-4 exchanger
+    #8 Tube Pitch -> triangular pitch 1-2 exchanger / 2-4 exchanger
     if exchanger == '2-4':
         #2-4 exchanger
         Tubepitch = 1.25 * Do
@@ -123,7 +125,7 @@ while solvingUguess:
         n1 = 2.207
         Db = Do * (Nt / Ki)**(1 / n1)
 
-    #10 Clearance http://www.wermac.org/equipment/heatexchanger_part5.html -> depends on head
+    #9 Clearance  -> depends on head
     if head == typeofhead[0]: #Pull through
         #y = mx + c
         #c 0.2 = 88, 1.2 = 96 -> every 1 x, y + 8 -> every 0.2 x, y + 1.6 -> at 0, y = 88 - 1.6
@@ -146,28 +148,27 @@ while solvingUguess:
     clearance = (m * Db) + c 
     clearance = clearance * 10**-3 #milli meter
 
-    #11 Shell Diameter
+    #10 Shell Diameter
     Ds = Db + clearance
 
-    #12 Baffle Pitch(P)
+    #11 Baffle Pitch(P)
     P = 0.4 * Ds
 
-    #13 Cross Section Flow Area(Sc)
+    #12 Cross Section Flow Area(Sc)
     Sc = P * Ds * (1 - (Do / Tubepitch))
 
-    #14 Gs
+    #13 Gs
     Gs = mflowcold / Sc #kg/m^2 s
 
-    #15 De
+    #14 De
     De = (4 * (((Tubepitch / 2) * 0.87 * Tubepitch) - (np.pi / 2 * Do**2 / 4))) / (np.pi * Do / 2)
 
-    #16 Re
+    #15 Re
     millshell = 0.55 * 10**-3 #N * s, temp of brine around 110 + 80 / 2 = 95 celsius
     Re = (Gs * De) / millshell
 
-    #17 Pr 
+    #16 Pr 
     #K value of saltwater decreases with increasing salinity, but increase with temperature
-    #https://www.google.com/search?q=The+thermal+conductivity+of+seawater&hl=en&sxsrf=AOaemvKWJvPyI9SCpZIG3u5SRB-GGI4_YQ:1635936424041&source=lnms&tbm=isch&sa=X&ved=2ahUKEwjv8LeLgvzzAhUp63MBHWi_B_QQ_AUoAXoECAEQAw&biw=958&bih=959&dpr=1#imgrc=c3Ac_9sBpaQQKM
     #equation is approximately y = (0.57 - 0.535 / 310 - 290)x + c
     #to find c we guess from 5% to 6% solution decrease in y by around 0.01
     #therefore, from 5% to 25% decrease by 0.2
@@ -175,9 +176,9 @@ while solvingUguess:
     Kk = 0.34 #w /m k
     Pr = (Cpcold * millshell) / Kk
 
-    #18 hs from Nu -> individual heat transfer shell
+    #17 hs from Nu -> individual heat transfer shell
 
-        #18.1 creating a Jh factor linear equation, values are when Re > 2100, 25% baffle cut
+        #17.1 creating a Jh factor linear equation, values are when Re > 2100, 25% baffle cut
     Jhxvalues = [2.1*10**3, 3.3*10**3, 4*10**3, 5*10**3, 7*10**3, 9*10**3, 1.5*10**4, 2.2*10**4, 4.1*10**4, 7*10**4]
     Jhyvalues = [1.3*10**-2, 1*10**-2, 0.9*10**-2, 0.8*10**-2, 0.7*10**-2, 0.6*10**-2, 0.5*10**-2, 0.4*10**-2, 0.3*10**-2, 0.2*10**-2]
     Jhslope, Jhintercept, Jhrvalue, Jhpvalue, Jhstderr = stats.linregress(Jhxvalues, Jhyvalues)
@@ -188,9 +189,9 @@ while solvingUguess:
 
     hshell = (Jh * Re * Pr**(1/3) * (millshell/millshellwall)**0.14) * Kk / De #w / m^2 k 
 
-    #19 Pressure drop shell side
+    #18 Pressure drop shell side
 
-        #19.1 creating a Jfshell factor linear equation, values are when Re > 2100, 25% baffle cut
+        #18.1 creating a Jfshell factor linear equation, values are when Re > 2100, 25% baffle cut
     Jfshellxvalues = [2.1*10**3, 9*10**3, 4*10**4, 3*10**5, 1*10**6]
     Jfshellyvalues = [6*10**-2, 5*10**-2, 4*10**-2, 3*10**-2, 2.5*10**-2]
     Jfshellslope, Jfshellintercept, Jfshellrvalue, Jfshellpvalue, Jfshellstderr = stats.linregress(Jfshellxvalues, Jfshellyvalues)
@@ -205,20 +206,20 @@ while solvingUguess:
     ShellDeltaP = 8 * Jfshell * (Ds/De) * (L/P) * (roushell*(Us**2)/2) * (millshell/millshellwall)**-0.14 #kg/m s^2
 
     #Tube Side#
-    #20 Nt per pass
+    #19 Nt per pass
     if exchanger == '2-4':
         Ntpp = Nt / 4
     else:
         Ntpp = Nt / 2
 
-    #21 Tube side volumetric velocity (Gi)
+    #20 Tube side volumetric velocity (Gi)
     Gi = mflowhot / ((Ntpp * np.pi * Di**2) / 4) #mflowhot already in seconds
 
-    #22 Tube side velocity (Ui)
+    #21 Tube side velocity (Ui)
     routube = 997 #kg / m^3 density of water
     Ui = Gi / routube
 
-    #23 Pr and Re of tube side https://www.engineeringtoolbox.com/water-liquid-gas-thermal-conductivity-temperature-pressure-d_2012.html
+    #22 Pr and Re of tube side 
     #at 0.01 celsius K water = 0.55575 -> c
     #at 99.6 celsius, K water = 0.67703
     #therefore y = mx + c, y = (0.67703 - 0.55575 / 99.6 - 0.01)(240) + 0.55575 = 0.848
@@ -227,7 +228,7 @@ while solvingUguess:
     PrTube = (milltube * Cphot) / Kg
     ReTube = (Gi * Di) / milltube
 
-    #24 Estimate tube-side heat trans. coeff.
+    #23 Estimate tube-side heat trans. coeff.
     milltubewall = 0.12 * 10**-3 #water at 220 celsius
 
     if ReTube < 2100:
@@ -243,15 +244,15 @@ while solvingUguess:
     Uo = 1 / ((1/FoulingFactorHot)*(Do/Di) + (1/TubeHeatTransCoeff)*(Do/Di) + (Xw/Km)*(Do/DbarL) + (1/ShellHeatTransCoeff) + (1/FoulingFactorCold))
     #w / m^2 s hdi = inside = tube fouling factor, hdo = outside = shell fouling factor, 
 
-    #25 Pressure drop tube side
-    #relative roughness https://www.researchgate.net/figure/Surface-texture-of-direct-laser-deposited-tungsten-carbide-a-2D-surface-profile-b_fig1_249994402
+    #24 Pressure drop tube side
+    #relative roughness 
     #lowest = 100 micro meters
     #highest = 80 micro meters
     #avg = 100 + 80 / 2 = 90 micro meters of roughness
     #inside pipe diameter = (0.732 / 39.37) meters
     #k / D = avg / inside pipe diameter = 90 micro meters / (0.732 / 39.37) = 4.84 * 10^-3
 
-        #25.1 creating a Jftube factor linear equation, values are when Re > 2100, 25% baffle cut    
+        #24.1 creating a Jftube factor linear equation, values are when Re > 2100, 25% baffle cut    
     if 3*10**3 < ReTube < 4*10**5:
         Jftubexvalues = np.array([4*10**3, 6*10**3, 8*10**3, 1*10**4, 2*10**4, 3*10**4, 4*10**4, 6*10**4, 8*10**4, 1*10**5, 4*10**5])
         Jftubeyvalues = np.array([0.01125, 0.0105, 0.0098, 0.0096, 0.0087, 0.0085, 0.0082, 0.0079, 0.0078, 0.00765, 0.0075])
