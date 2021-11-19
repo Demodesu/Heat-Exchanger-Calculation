@@ -58,7 +58,6 @@ while solvingUguess:
     TcoldOut = 110 #celsius
     TcoldIn = 80 #celsius
     LMTD = ((TcoldOut - TcoldIn) - (ThotIn - ThotOut)) / np.log(((TcoldOut - TcoldIn) / (ThotIn - ThotOut)))        
-
     #2 Fouling
     Rdcold = 0.00025 #resistance of brine
     Rdhot = 0.0001 #resistance of water
@@ -97,8 +96,8 @@ while solvingUguess:
         #1-2 exchanger
         nh = (TcoldOut - TcoldIn) / (ThotIn - TcoldIn)
         z = (ThotIn - ThotOut) / (TcoldOut - TcoldIn)
-        Fg = 0.935 #from graph    
-
+        Fg = (((z**2 + 1)**0.5) * np.log((1 - nh) / (1 - (z * nh)))) / ((z - 1) * np.log((2 - nh * (z + 1 - (z**2 + 1)**0.5)) / (2 - nh * (z + 1 + (z**2 + 1)**0.5))))
+       
     #5 Corrected LMTD
     newLMTD = LMTD * Fg #celsius
 
@@ -108,9 +107,9 @@ while solvingUguess:
     #7 Number of Tubes
     Nt = Ao / (np.pi * Do * L)
     Nt = np.ceil(Nt)
-    if Nt % 2 != 0: #to make it even everytime, when number is odd, add 1
+    if Nt % 2 != 0:
         Nt += 1
-
+ #to make it even everytime, when number is odd, add 1
     #8 Tube Pitch -> triangular pitch 1-2 exchanger / 2-4 exchanger
     if exchanger == '2-4':
         #2-4 exchanger
@@ -125,7 +124,7 @@ while solvingUguess:
         n1 = 2.207
         Db = Do * (Nt / Ki)**(1 / n1)
 
-    #9 Clearance  -> depends on head
+    #9 Clearance -> depends on head
     if head == typeofhead[0]: #Pull through
         #y = mx + c
         #c 0.2 = 88, 1.2 = 96 -> every 1 x, y + 8 -> every 0.2 x, y + 1.6 -> at 0, y = 88 - 1.6
@@ -169,11 +168,12 @@ while solvingUguess:
 
     #16 Pr 
     #K value of saltwater decreases with increasing salinity, but increase with temperature
-    #equation is approximately y = (0.57 - 0.535 / 310 - 290)x + c
-    #to find c we guess from 5% to 6% solution decrease in y by around 0.01
-    #therefore, from 5% to 25% decrease by 0.2
-    #which is 0.54 - 0.2 = 0.34
-    Kk = 0.34 #w /m k
+    #from 310 start at 0.5, so every 20 decrease in temp increase by 0.53 - 0.49 = 0.04
+    #from 310 to 95, there is a 215 celcius decrease. so 215 would increase by 10.75 * 0.04 = 0.43
+    #when we look at 5% to 6%, there is a 0.01 decrease, therefore, from 5% to 25% there is a 0.2 decrease.
+    #so from 5% to 25%, the starting point would be 0.5 - 0.2 = 0.3
+    #finally, the value would be 0.3 + 0.43 = 0.73
+    Kk = 0.73 #w /m k
     Pr = (Cpcold * millshell) / Kk
 
     #17 hs from Nu -> individual heat transfer shell
@@ -197,7 +197,6 @@ while solvingUguess:
     Jfshellslope, Jfshellintercept, Jfshellrvalue, Jfshellpvalue, Jfshellstderr = stats.linregress(Jfshellxvalues, Jfshellyvalues)
     Jfshell = (Jfshellslope * Re) + Jfshellintercept
 
-    Jfshell = 4 * 10**-2 #find from graph
     #density of water = 997 kg / m^3, density of salt = 2160 kg / m^3
     #if the solution consists of 75% and 25% salt
     #(997 * 0.75) + (2160 * 0.25) = 1287.75 kg / m^3
@@ -267,9 +266,8 @@ while solvingUguess:
     counter += 1
 
 #-------------------------------------------------------------------------------------------#
-   
-    #end conditions
 
+    #end conditions
     if abs(Uo - Uguess) < 0.000000001:
         solvingUguess = False
         print(f'({counter}) (Final U - {Uguess} {Uo}) (Outside P - {ShellDeltaP} Pa {ShellDeltaP / 6895} PSI) (Inside P - {TubeDeltaP} Pa {TubeDeltaP / 6895} PSI) (Re Shell - {Re}) (Re Tube - {ReTube}) (Head - {head}) (Type - {exchanger}) (Material - {pipematerial})')
